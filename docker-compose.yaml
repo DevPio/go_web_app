@@ -1,0 +1,40 @@
+version: '3'
+
+
+services:
+
+  app: 
+    container_name: app
+    entrypoint:  wait-for db:3306 -t 40 -- ./start.sh
+    tty: true
+    build: 
+      context: ./go  
+     
+    volumes:
+      - ./go:/go/src/app
+    ports:
+      - "3000:3000"
+    networks:
+      - gonetwork
+    depends_on:
+      - db
+
+  db:
+    image: mysql:5.7
+    command: --innodb-use-native-aio=0
+    container_name: db
+    restart: always
+    tty: true
+    ports:
+      - "3306"
+    volumes:
+      - ./mysql:/var/lib/mysql
+      # - ./setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    environment:
+      - MYSQL_DATABASE=goweb
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - gonetwork
+networks:
+  gonetwork:
+    driver: bridge
