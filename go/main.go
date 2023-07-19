@@ -3,49 +3,78 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+
+	"html/template"
+	"net/http"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 )
 
-var port string = ":3000"
-
-type Book struct {
-	id               int
-	title            string
-	author           string
-	publication_year int
-	genre            string
-	isbn             string
-	price            float64
-	copies_available int
+type Post struct {
+	Id    int
+	Title string
+	Body  string
 }
 
 func main() {
 
 	db, _ := sql.Open("mysql", "root:root@tcp(db:3306)/goweb")
 
-	response, err := db.Query("SELECT * FROM books")
+	response, err := db.Query(`CREATE TABLE IF NOT EXISTS books (
+		Id INT AUTO_INCREMENT PRIMARY KEY,
+		Title VARCHAR(100) NOT NULL,
+		Body VARCHAR(255) NOT NULL
+	);`)
+
+	fmt.Println(err)
+	defer response.Close()
 	// response, _ := db.Query("SELECT COUNT(IFNULL(code, 1)) FROM goweb;")
 
-	if err != nil {
-		log.Fatal(err)
+	fmt.Println(db.Stats().InUse)
+
+	router := mux.NewRouter()
+
+	router.HandleFunc("/", start)
+	router.HandleFunc("/createPost", renderPost)
+	router.HandleFunc("/newPost", createPost).Methods("POST")
+
+	http.ListenAndServe(":3000", router)
+
+}
+
+func start(w http.ResponseWriter, r *http.Request) {
+	newPost := Post{
+		Id:    1,
+		Title: "Nem post",
+		Body:  "",
 	}
-	for response.Next() {
-		var book Book
 
-		response.Scan(&book.id, &book.title, &book.author, &book.publication_year, &book.genre, &book.isbn, &book.price, &book.copies_available)
+	title := r.FormValue("title")
 
-		fmt.Println(book)
+	if title != "" {
+		newPost.Title = title
 	}
 
-	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	render := template.Must(template.ParseFiles("./views/index.html"))
 
-	// 	render := render.RenderTemplate("./views/index.tpml")
+	render.Execute(w, newPost)
 
-	// 	render.Execute(w, nil)
-	// })
+}
 
-	// log.Fatal(http.ListenAndServe(port, nil))
+func renderPost(w http.ResponseWriter, r *http.Request) {
 
+	render := template.Must(template.ParseFiles("./views/post.html"))
+
+	render.Execute(w, nil)
+}
+
+func createPost(w http.ResponseWriter, r *http.Request) {
+
+	title := r.PostFormValue("title")
+	body := r.PostFormValue("body")
+	fmt.Println(title)
+	fmt.Println(body)
+
+	http.Redirect(w, r, "http://localhost:3000/", http.StatusAccepted)
 }
