@@ -17,9 +17,9 @@ type Post struct {
 	Body  string
 }
 
-func main() {
+var db, err = sql.Open("mysql", "root:root@tcp(db:3306)/goweb")
 
-	db, _ := sql.Open("mysql", "root:root@tcp(db:3306)/goweb")
+func Init() {
 
 	response, err := db.Query(`CREATE TABLE IF NOT EXISTS books (
 		Id INT AUTO_INCREMENT PRIMARY KEY,
@@ -29,37 +29,87 @@ func main() {
 
 	fmt.Println(err)
 	defer response.Close()
-	// response, _ := db.Query("SELECT COUNT(IFNULL(code, 1)) FROM goweb;")
 
-	fmt.Println(db.Stats().InUse)
+}
+
+func main() {
+
+	checkErro(err)
+	Init()
+
+	db.Ping()
 
 	router := mux.NewRouter()
 
 	router.HandleFunc("/", start)
 	router.HandleFunc("/createPost", renderPost)
 	router.HandleFunc("/newPost", createPost).Methods("POST")
+	router.HandleFunc("/editPost", editPost)
 
 	http.ListenAndServe(":3000", router)
 
 }
 
+func editPost(w http.ResponseWriter, r *http.Request) {
+
+	id := r.FormValue("id")
+
+	result, error := db.Query("SELECT * FROM books WHERE Id = " + id + ";")
+
+	checkErro(error)
+
+	var post Post
+
+	for result.Next() {
+		result.Scan(&post.Id, &post.Title, &post.Body)
+	}
+
+	render := template.Must(template.ParseFiles("./views/post.html"))
+
+	render.Execute(w, post)
+}
+
+func getAllItem() []Post {
+
+	result, err := db.Query("SELECT * FROM books;")
+
+	checkErro(err)
+
+	posts := make([]Post, 0)
+
+	for result.Next() {
+		var post Post
+
+		result.Scan(&post.Id, &post.Title, &post.Body)
+
+		posts = append(posts, post)
+	}
+
+	return posts
+}
+
 func start(w http.ResponseWriter, r *http.Request) {
-	newPost := Post{
-		Id:    1,
-		Title: "Nem post",
-		Body:  "",
-	}
-
-	title := r.FormValue("title")
-
-	if title != "" {
-		newPost.Title = title
-	}
 
 	render := template.Must(template.ParseFiles("./views/index.html"))
 
-	render.Execute(w, newPost)
+	render.Execute(w, getAllItem())
 
+}
+
+func addPost(title string, body string) *sql.Stmt {
+	smt, error := db.Prepare("INSERT INTO books(Title, Body) values(?,?)")
+
+	checkErro(error)
+
+	smt.Exec(title, body)
+
+	return smt
+}
+
+func checkErro(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func renderPost(w http.ResponseWriter, r *http.Request) {
@@ -73,8 +123,9 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
-	fmt.Println(title)
-	fmt.Println(body)
 
-	http.Redirect(w, r, "http://localhost:3000/", http.StatusAccepted)
+	addPost(title, body)
+
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
+
 }
