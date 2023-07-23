@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 
 	"html/template"
 	"net/http"
@@ -19,6 +18,8 @@ type Post struct {
 
 var db, err = sql.Open("mysql", "root:root@tcp(db:3306)/goweb")
 
+var port string = ":3000"
+
 func Init() {
 
 	response, err := db.Query(`CREATE TABLE IF NOT EXISTS books (
@@ -27,46 +28,58 @@ func Init() {
 		Body VARCHAR(255) NOT NULL
 	);`)
 
-	fmt.Println(err)
+	checkErro(err)
 	defer response.Close()
 
 }
 
 func main() {
 
-	checkErro(err)
 	Init()
+	checkErro(err)
+	http.ListenAndServe(port, router())
 
-	db.Ping()
+}
 
+func router() *mux.Router {
 	router := mux.NewRouter()
+
+	router.PathPrefix("/static").Handler(http.StripPrefix("/static", http.FileServer(http.Dir("static/"))))
 
 	router.HandleFunc("/", start)
 	router.HandleFunc("/createPost", renderPost)
 	router.HandleFunc("/newPost", createPost).Methods("POST")
 	router.HandleFunc("/editPost", editPost)
+	router.HandleFunc("/editPostDb", editPostDb).Methods("POST")
 
-	http.ListenAndServe(":3000", router)
-
+	return router
 }
 
 func editPost(w http.ResponseWriter, r *http.Request) {
 
 	id := r.FormValue("id")
 
-	result, error := db.Query("SELECT * FROM books WHERE Id = " + id + ";")
-
-	checkErro(error)
+	result := db.QueryRow("SELECT * FROM books WHERE Id =?", id)
 
 	var post Post
 
-	for result.Next() {
-		result.Scan(&post.Id, &post.Title, &post.Body)
-	}
+	result.Scan(&post.Id, &post.Title, &post.Body)
 
-	render := template.Must(template.ParseFiles("./views/post.html"))
+	render := template.Must(template.ParseFiles("./views/layout.html", "./views/post.html"))
 
 	render.Execute(w, post)
+}
+
+func editPostDb(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	title := r.FormValue("title")
+	body := r.FormValue("title")
+
+	_, error := db.Query("UPDATE books SET Title = '" + title + "', Body = '" + body + "' WHERE Id =" + id + "")
+
+	checkErro(error)
+
+	http.Redirect(w, r, "/", http.StatusMovedPermanently)
 }
 
 func getAllItem() []Post {
@@ -90,7 +103,7 @@ func getAllItem() []Post {
 
 func start(w http.ResponseWriter, r *http.Request) {
 
-	render := template.Must(template.ParseFiles("./views/index.html"))
+	render := template.Must(template.ParseFiles("./views/layout.html", "./views/list.html"))
 
 	render.Execute(w, getAllItem())
 
@@ -114,7 +127,7 @@ func checkErro(err error) {
 
 func renderPost(w http.ResponseWriter, r *http.Request) {
 
-	render := template.Must(template.ParseFiles("./views/post.html"))
+	render := template.Must(template.ParseFiles("./views/layout.html", "./views/post.html"))
 
 	render.Execute(w, nil)
 }

@@ -1,30 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
-    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-  <title>Document</title>
-</head>
-
-<body>
-  <div class="container">
-    <form method="post" action="/newPost">
-      <div class="form-group">
-        <label for="title">Title</label>
-        <input type="text" class="form-control" id="title" value="{{.Title}}" aria-describedby="emailHelp" name="title">
-
-      </div>
-      <div class="form-group">
-        <label for="body">Corpo</label>
-        <textarea class="form-control" name="body" id="body" rows="3">{{.Body}}</textarea>
-      </div>
-
-      <button type="submit" class="btn btn-primary">{{if .Title }} Atualizar {{else}} Enviar {{end}}</button>
-    </form>
-  </div>
-</body>
-
-</html>
+{{define "body"}}
+<div class="container">
+  <form method="post" action=" {{if .Title }} /editPostDb {{else}} /newPost {{end}}">
+    <div class="form-group">
+      <label for="title">Title</label>
+      <input type="text" class="form-control" id="title" value="{{.Title}}" aria-describedby="emailHelp" name="title">
+    </div>
+    <div class="form-group">
+      <label for="body">Corpo</label>
+      <textarea class="form-control" name="body" id="body" rows="3">{{.Body}}</textarea>
+    </div>
+    <input type="hidden" name="id" value="{{.Id}}">
+    <button type="submit" class="btn btn-primary">{{if .Title }} Atualizar {{else}} Enviar {{end}}</button>
+  </form>
+</div>
+{{end}}
